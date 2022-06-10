@@ -33,6 +33,7 @@ class Packet:
                     tuple(_.split(DATA_TUPLE_SPLITTER))
                     for _ in (data[2].split(DATA_LIST_SPLITTER) if data[2] else [])
                 ],
+                data[3]
             )
 
         return Packet('ERRRRRRROR')
@@ -68,10 +69,11 @@ class SearchFilePacket(Packet):
 
 
 class SearchResultPacket(Packet):
-    def __init__(self, file_name, reached_nodes, files) -> None:
+    def __init__(self, file_name, reached_nodes, files, dest_index) -> None:
         self.file_name = file_name
         self.reached_nodes = reached_nodes
         self.files = files
+        self.dest_index = int(dest_index)
         return super().__init__(data=[
             FILE_SEARCH_RESULT,
             file_name,
@@ -79,6 +81,7 @@ class SearchResultPacket(Packet):
             DATA_LIST_SPLITTER.join(
                 [DATA_TUPLE_SPLITTER.join(_) for _ in files]
             ),
+            dest_index
         ])
 
 
@@ -158,6 +161,7 @@ class Node:
             self.handle_file_search_result(
                 file_name=packet.file_name,
                 reached_nodes=packet.reached_nodes,
+                dest_index=0
             )
 
     def handle_search_result_packet(self, packet: SearchResultPacket):
@@ -165,6 +169,7 @@ class Node:
             file_name=packet.file_name,
             reached_nodes=packet.reached_nodes,
             current_files=packet.files,
+            dest_index=packet.dest_index
         )
 
     def broadcast(self):
@@ -238,12 +243,13 @@ class Node:
                 has_sent_packet = True
         return has_sent_packet
 
-    def handle_file_search_result(self, file_name, reached_nodes, current_files: List[Tuple] = []):
+    def handle_file_search_result(self, file_name, reached_nodes, dest_index, current_files: List[Tuple] = []):
         print("search result", reached_nodes)
-        if reached_nodes:
+        if dest_index < len(reached_nodes):
             files = self.file_system.search_for_file(file_name)
             print('found: ', files)
-            destination, *reached_nodes = reached_nodes
+            destination = reached_nodes[dest_index]
+            dest_index += 1
             self.send_socket.sendto(
                 SearchResultPacket(
                     file_name=file_name,
@@ -252,6 +258,7 @@ class Node:
                         *[(file, self.ip_address) for file in files],
                         *current_files,
                     ],
+                    dest_index=str(dest_index)
                 ).encode(),
                 (destination, UDP_LISTEN_PORT),
             )
