@@ -31,7 +31,7 @@ class Packet:
                 data[1].split(DATA_LIST_SPLITTER) if data[1] else [],
                 [
                     tuple(_.split(DATA_TUPLE_SPLITTER))
-                    for _ in data[2].split(DATA_LIST_SPLITTER) if data[2] else []
+                    for _ in (data[2].split(DATA_LIST_SPLITTER) if data[2] else [])
                 ],
             )
 
