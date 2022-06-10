@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOL_SOCKET, socket
 from threading import Thread
 from time import sleep
-from typing import List
+from typing import Set
 
 from enums import (ACK_FOR_JOIN, BROADCAST_ADDRESS,
                    BROADCAST_TIME_LIMIT_IN_SECONDS, DATA_SPLITTER,
@@ -50,7 +50,7 @@ class NeighborRequestPacket(Packet):
 class Node:
     def __init__(self, address=DEFUALT_ADDRESS):
         self.address: str = address
-        self.neighbors: List[str] = []
+        self.neighbors: Set[str] = set()
 
     def run(self):
         self.send_socket = socket(AF_INET, SOCK_DGRAM)
@@ -92,7 +92,7 @@ class Node:
         self.potential_neighbors[from_address] = packet.number_of_neighbors
 
     def handle_neighbor_request_packet(self, from_address):
-        self.neighbors.append(from_address)
+        self.add_neighbor(from_address)
 
     def broadcast(self):
         self.potential_neighbors = dict()
@@ -114,7 +114,12 @@ class Node:
         ])
         number_of_neighbors = sorted_potential_neighbors[-1][0] or 1
         for i in range(number_of_neighbors):
+            address = sorted_potential_neighbors[i][1]
+            self.add_neighbor(address)
             self.send_socket.sendto(
                 NeighborRequestPacket().encode(),
-                sorted_potential_neighbors[i][1],
+                address,
             )
+
+    def add_neighbor(self, neighbor_address):
+        self.neighbors.add(neighbor_address)
