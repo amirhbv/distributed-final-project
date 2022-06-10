@@ -38,7 +38,7 @@ class BroadcastPacket(Packet):
 
 class BroadcastAckPacket(Packet):
     def __init__(self, number_of_neighbors) -> None:
-        self.number_of_neighbors = number_of_neighbors
+        self.number_of_neighbors = int(number_of_neighbors)
         return super().__init__(data=[ACK_FOR_JOIN, number_of_neighbors])
 
 
@@ -62,7 +62,7 @@ class Node:
         self.broadcast()
         self.choose_neighbors()
 
-        print(self.neighbors)
+        print('end', self.neighbors)
 
     def handle_incoming_message(self, sock):
         while True:
@@ -127,7 +127,7 @@ class Node:
 
         sorted_potential_neighbors = sorted([
             (number_of_neighbors, address)
-            for address, number_of_neighbors in self.potential_neighbors
+            for address, number_of_neighbors in self.potential_neighbors.items()
         ])
         number_of_neighbors = sorted_potential_neighbors[-1][0] or 1
         for i in range(number_of_neighbors):
@@ -140,3 +140,4 @@ class Node:
 
     def add_neighbor(self, neighbor_address):
         self.neighbors.add(neighbor_address)
+        print(neighbor_address, self.neighbors)
