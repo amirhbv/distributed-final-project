@@ -54,6 +54,8 @@ class Node:
 
     def run(self):
         self.send_socket = socket(AF_INET, SOCK_DGRAM)
+        self.send_socket.connect(("8.8.8.8", 80))
+        self.ip_address = self.send_socket.getsockname()[0]
 
         Thread(target=self.handle_incoming_message).start()
 
@@ -68,13 +70,17 @@ class Node:
 
         while True:
             msg, address = udp_socket.recvfrom(1024)
+            if address[0] == self.ip_address:
+                continue
+
             self.handle_packet(
                 packet=Packet.from_message(msg),
                 from_address=address,
             )
 
     def handle_packet(self, packet: Packet, from_address: tuple):
-        print(packet, from_address)
+        print(packet, packet.encode(), from_address)
+
         if isinstance(packet, BroadcastPacket):
             self.handle_broadcast_packet(from_address)
         elif isinstance(packet, BroadcastAckPacket):
@@ -108,6 +114,9 @@ class Node:
             sleep(0.5)
 
     def choose_neighbors(self):
+        if not self.potential_neighbors:
+            return
+
         sorted_potential_neighbors = sorted([
             (number_of_neighbors, address)
             for address, number_of_neighbors in self.potential_neighbors
