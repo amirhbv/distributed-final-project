@@ -24,14 +24,14 @@ class Packet:
         elif command == REQUEST_FOR_NEIGHBOR:
             return NeighborRequestPacket()
         elif command == REQUEST_FOR_FILE:
-            return SearchFilePacket(data[0], data[1].split(DATA_LIST_SPLITTER))
+            return SearchFilePacket(data[0], data[1].split(DATA_LIST_SPLITTER) if data[1] else [])
         elif command == FILE_SEARCH_RESULT:
             return SearchResultPacket(
                 data[0],
-                data[1].split(DATA_LIST_SPLITTER),
+                data[1].split(DATA_LIST_SPLITTER) if data[1] else [],
                 [
                     tuple(_.split(DATA_TUPLE_SPLITTER))
-                    for _ in data[2].split(DATA_LIST_SPLITTER)
+                    for _ in data[2].split(DATA_LIST_SPLITTER) if data[2] else []
                 ],
             )
 
