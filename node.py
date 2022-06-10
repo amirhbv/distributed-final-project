@@ -4,7 +4,7 @@ from threading import Thread
 from time import sleep
 from typing import Set
 
-from enums import (ACK_FOR_JOIN, BROADCAST_ADDRESS,
+from enums import (ACK_FOR_JOIN, BROADCAST_ADDRESS, BROADCAST_LISTEN_PORT,
                    BROADCAST_TIME_LIMIT_IN_SECONDS, DATA_SPLITTER,
                    DEFUALT_ADDRESS, REQUEST_FOR_JOIN, REQUEST_FOR_NEIGHBOR,
                    UDP_LISTEN_PORT)
@@ -48,8 +48,7 @@ class NeighborRequestPacket(Packet):
 
 
 class Node:
-    def __init__(self, address=DEFUALT_ADDRESS):
-        self.address: str = address
+    def __init__(self):
         self.neighbors: Set[str] = set()
 
     def run(self):
@@ -57,26 +56,35 @@ class Node:
         self.send_socket.connect(("8.8.8.8", 80))
         self.ip_address = self.send_socket.getsockname()[0]
 
-        Thread(target=self.handle_incoming_message).start()
+        Thread(target=self.handle_broadcast).start()
+        Thread(target=self.handle_udp_message).start()
 
         self.broadcast()
         self.choose_neighbors()
 
         print(self.neighbors)
 
-    def handle_incoming_message(self):
-        udp_socket = socket(AF_INET, SOCK_DGRAM)
-        udp_socket.bind((self.address, UDP_LISTEN_PORT))
-
+    def handle_incoming_message(self, sock):
         while True:
-            msg, address = udp_socket.recvfrom(1024)
-            if address[0] == self.ip_address:
+            msg, address = sock.recvfrom(1024)
+            address = address[0]
+            if address == self.ip_address:
                 continue
 
             self.handle_packet(
                 packet=Packet.from_message(msg),
                 from_address=address,
             )
+
+    def handle_broadcast(self):
+        broadcast_socket = socket(AF_INET, SOCK_DGRAM)
+        broadcast_socket.bind((DEFUALT_ADDRESS, BROADCAST_LISTEN_PORT))
+        self.handle_incoming_message(broadcast_socket)
+
+    def handle_udp_message(self):
+        udp_socket = socket(AF_INET, SOCK_DGRAM)
+        udp_socket.bind((self.ip_address, UDP_LISTEN_PORT))
+        self.handle_incoming_message(udp_socket)
 
     def handle_packet(self, packet: Packet, from_address: tuple):
         print(packet, packet.encode(), from_address)
@@ -91,7 +99,7 @@ class Node:
     def handle_broadcast_packet(self, from_address):
         self.send_socket.sendto(
             BroadcastAckPacket(len(self.neighbors)).encode(),
-            from_address,
+            (from_address, UDP_LISTEN_PORT),
         )
 
     def handle_broadcast_ack_packet(self, packet: BroadcastAckPacket, from_address):
@@ -109,7 +117,7 @@ class Node:
         while datetime.now() - start_time < timedelta(seconds=BROADCAST_TIME_LIMIT_IN_SECONDS):
             broadast_socket.sendto(
                 BroadcastPacket().encode(),
-                (BROADCAST_ADDRESS, UDP_LISTEN_PORT),
+                (BROADCAST_ADDRESS, BROADCAST_LISTEN_PORT),
             )
             sleep(0.5)
 
@@ -127,7 +135,7 @@ class Node:
             self.add_neighbor(address)
             self.send_socket.sendto(
                 NeighborRequestPacket().encode(),
-                address,
+                (address, UDP_LISTEN_PORT),
             )
 
     def add_neighbor(self, neighbor_address):
