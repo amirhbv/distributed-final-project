@@ -1,4 +1,6 @@
 from node import Node
 
 
-Node().run()
+Node(
+    directory='./files'
+).run()

@@ -1,4 +1,5 @@
-import os  
+import os
+
 
 class FileSystem:
     def __init__(self, folder_address):
@@ -14,17 +15,13 @@ class FileSystem:
                             files.append(entry.name)
         except OSError:
             print("ERROR: folder does not exist")
-        return files  
+        return files
 
     def get_file_content(self, file_name: str) -> str:
         file_path = os.path.join(self.folder_address, file_name)
-        f = open(file_path, 'rb')
-        file_content = f.read()
-        f.close()
-        return file_content
+        with open(file_path, 'r') as f:
+            return f.read()
 
-    def add_new_file(self,file_content, file_name) -> None:
-        with open(file = file_name,mode = 'w') as new_file:
+    def add_new_file(self, file_content, file_name) -> None:
+        with open(file=file_name, mode='w') as new_file:
             new_file.write(file_content)
-            new_file.close()
-
