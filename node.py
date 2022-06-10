@@ -221,6 +221,7 @@ class Node:
                     pass
 
     def handle_search(self, file_name, current_reached_nodes=[]):
+        print("search", current_reached_nodes)
         has_sent_packet = False
         for neighbor in self.neighbors:
             if neighbor not in current_reached_nodes:
@@ -238,6 +239,7 @@ class Node:
         return has_sent_packet
 
     def handle_file_search_result(self, file_name, reached_nodes, current_files: List[Tuple] = []):
+        print("search result", reached_nodes)
         if reached_nodes:
             files = self.file_system.search_for_file(file_name)
             print('found: ', files)
@@ -254,4 +256,4 @@ class Node:
                 (destination, UDP_LISTEN_PORT),
             )
         else:
-            print(files)
+            print(current_files)
