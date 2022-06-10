@@ -2,7 +2,7 @@ import os
 
 class FileSystem:
     def __init__(self, folder_address):
-        pass
+        self.folder_address = folder_address
 
     def search_for_file(self, searched_name: str):
         files = []
