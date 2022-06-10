@@ -238,10 +238,9 @@ class Node:
         return has_sent_packet
 
     def handle_file_search_result(self, file_name, reached_nodes, current_files: List[Tuple] = []):
-        files = self.file_system.search_for_file(file_name)
-        print('found: ', files)
-
         if reached_nodes:
+            files = self.file_system.search_for_file(file_name)
+            print('found: ', files)
             destination, *reached_nodes = reached_nodes
             self.send_socket.sendto(
                 SearchResultPacket(
