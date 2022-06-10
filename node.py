@@ -189,6 +189,7 @@ class Node:
             for address, number_of_neighbors in self.potential_neighbors.items()
         ])
         number_of_neighbors = sorted_potential_neighbors[-1][0] or 1
+        print(number_of_neighbors, sorted_potential_neighbors)
         for i in range(number_of_neighbors):
             address = sorted_potential_neighbors[i][1]
             self.add_neighbor(address)
@@ -209,7 +210,7 @@ class Node:
                 self.handle_search(file_name)
                 self.state = STATE_WAIT
             elif self.state == STATE_WAIT:
-                print('WAIT')
+                pass
             else:
                 file_index = input("Choose file from the list (0 for cancel)")
                 if file_index == '0':
@@ -238,6 +239,7 @@ class Node:
 
     def handle_file_search_result(self, file_name, reached_nodes, current_files: List[Tuple] = []):
         files = self.file_system.search_for_file(file_name)
+        print('found: ', files)
 
         if reached_nodes:
             destination, *reached_nodes = reached_nodes
