@@ -28,7 +28,7 @@ class Packet:
         self.data = data
 
     def encode(self):
-        return DATA_SPLITTER.join(self.data).encode()
+        return DATA_SPLITTER.join([str(_) for _ in self.data]).encode()
 
 
 class BroadcastPacket(Packet):
