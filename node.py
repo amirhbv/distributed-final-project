@@ -154,20 +154,21 @@ class Node:
             tcp_socket.bind((self.ip_address, TCP_LISTEN_PORT))
             tcp_socket.listen()
             conn, addr = tcp_socket.accept()
-            with conn:
-                Thread(target=self.handle_tcp_connection, args=(conn, )).start()
-                print(f"Connected by {addr}")
+            Thread(target=self.handle_tcp_connection, args=(conn, )).start()
+            print(f"Connected by {addr}")
 
     def handle_tcp_connection(self, conn):
-        data = conn.recv(1024)
-        packet = Packet.from_message(data)
-        file_search_result = self.search_tracker.get_file_search_result_by_file_name(
-            packet.file_name)
-        if file_search_result.source == self.ip_address:
-            data = self.file_system.get_file_content(packet.file_name)
-        else:
-            data = self.download_file(file_search_result)
-        conn.sendall(data)
+        with conn:
+            while True:
+                data = conn.recv(1024)
+                packet = Packet.from_message(data)
+                file_search_result = self.search_tracker.get_file_search_result_by_file_name(
+                    packet.file_name)
+                if file_search_result.source == self.ip_address:
+                    data = self.file_system.get_file_content(packet.file_name)
+                else:
+                    data = self.download_file(file_search_result)
+                conn.sendall(data)
 
     def handle_packet(self, packet: Packet, from_address: tuple):
         print(packet, packet.encode(), from_address)
@@ -379,4 +380,4 @@ class Node:
         else:
             print([str(sr)for sr in search_results])
             self.state = STAET_SELECT
-            self.search_results = search_results
+            self.search_results = list(search_results)
