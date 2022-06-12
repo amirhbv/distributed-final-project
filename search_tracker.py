@@ -23,9 +23,10 @@ class SearchTracker:
         with self.add_result_lock:
             if search_id in self.search_id_to_results_map:
                 self.search_id_to_results_map[search_id].append(result_from)
+                self.search_result[search_id] += files
             else:
                 self.search_id_to_results_map[search_id] = [result_from]
-            self.search_result[search_id] += files
+                self.search_result[search_id] = files
 
     def is_search_result_ready(self, search_id):
         if len(self.search_id_to_neighbors_map[search_id]) == len(self.search_id_to_results_map[search_id]):
