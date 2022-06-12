@@ -177,11 +177,13 @@ class Node:
                     self.handle_file_search_result(packet.file_name, packet.reached_nodes,search_result, packet.search_id)
                     break
 
-    def create_search_result_response(self,packet, files):
+    def create_search_result_response(self,packet: SearchFilePacket, files):
         node_search_result = self.search_tracker.create_results_from_files(files, self.ip_address)
         self.handle_file_search_result(
             file_name=packet.file_name,
-            reached_nodes=packet.reached_nodes
+            reached_nodes=packet.reached_nodes,
+            search_results=node_search_result,
+            search_id=packet.search_id
         )
 
     def handle_search_result_packet(self, packet: SearchResultPacket, from_address):
