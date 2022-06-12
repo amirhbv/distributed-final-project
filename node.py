@@ -162,13 +162,16 @@ class Node:
             while True:
                 data = conn.recv(1024)
                 packet = Packet.from_message(data)
-                file_search_result = self.search_tracker.get_file_search_result_by_file_name(
-                    packet.file_name)
-                if file_search_result.source == self.ip_address:
-                    data = self.file_system.get_file_content(packet.file_name)
-                else:
-                    data = self.download_file(file_search_result)
-                conn.sendall(data)
+                if isinstance(packet, DownloadFileRequestPacket):
+                    file_search_result = self.search_tracker.get_file_search_result_by_file_name(
+                        packet.file_name)
+                    if file_search_result.source == self.ip_address:
+                        data = self.file_system.get_file_content(
+                            packet.file_name,
+                        ).encode()
+                    else:
+                        data = self.download_file(file_search_result)
+                    conn.sendall(data)
 
     def handle_packet(self, packet: Packet, from_address: tuple):
         print(packet, packet.encode(), from_address)
