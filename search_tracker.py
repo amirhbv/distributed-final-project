@@ -55,6 +55,7 @@ class SearchTracker:
     def update_file_tracker(self, search_result_list):
         for search_result in search_result_list:
             self.file_tracker[search_result.file_name] = search_result
+        print('file_tracker', self.file_tracker)
 
     def create_results_from_files(self, files_list, node_address):
         node_search_result = []
