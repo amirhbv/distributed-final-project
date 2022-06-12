@@ -50,7 +50,7 @@ class SearchTracker:
             file_to_result_map[search_result.file_name] = search_result
 
         self.update_file_tracker(file_to_result_map.values())
-        return file_to_result_map.values()
+        return list(file_to_result_map.values())
 
     def update_file_tracker(self, search_result_list):
         for search_result in search_result_list:

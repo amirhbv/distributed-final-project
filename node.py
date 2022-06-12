@@ -371,7 +371,7 @@ class Node:
         if reached_nodes:
             # files = self.file_system.search_for_file(file_name)
             print('found: ', search_results)
-            search_results = deepcopy(list(search_results))
+            search_results = deepcopy(search_results)
             destination, *reached_nodes = reached_nodes
             for search_result in search_results:
                 search_result.source = self.ip_address
