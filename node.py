@@ -3,6 +3,8 @@ from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOL_SOCKET, socket
 from threading import Thread
 from time import sleep
 from typing import List, Set, Tuple
+
+from importlib_metadata import files
 from search_tracker import FileSearchResult
 from uuid import uuid1
 
@@ -168,20 +170,25 @@ class Node:
         )
         files = self.file_system.search_for_file(packet.file_name)
         if has_sent_packet:
-            self.create_search_result_response_from_neighbors(packet, files)
+            self.create_search_result_response_from_neighbors(
+                file_name=packet.file_name,
+                search_id=packet.search_id,
+                reached_nodes=packet.reached_nodes,
+                files=files
+                )
         else:
             self.create_search_result_response(packet, files)
 
-    def create_search_result_response_from_neighbors(self, packet, files):
+    def create_search_result_response_from_neighbors(self, file_name, search_id, reached_nodes, files):
         while (True):
             sleep(1)
             if self.search_tracker.is_search_result_ready(packet.search_id):
                 node_search_result = self.search_tracker.create_results_from_files(
                     files, self.ip_address)
                 search_result = self.search_tracker.get_final_search_result(
-                    packet.search_id, node_search_result)
+                    search_id, node_search_result)
                 self.handle_file_search_result(
-                    packet.file_name, packet.reached_nodes, search_result, packet.search_id)
+                    file_name, reached_nodes, search_result, search_id)
                 break
 
     def create_search_result_response(self, packet: SearchFilePacket, files):
@@ -250,7 +257,12 @@ class Node:
         while True:
             if self.state == STATE_SEARCH:
                 file_name = input("Enter file name:\n")
-                self.handle_search(file_name, str(uuid1().bytes))
+                self.create_search_result_response_from_neighbors(
+                    file_name=file_name,
+                    search_id=str(uuid1().bytes,
+                    reached_nodes=[],
+                    files=[])
+                    )
                 self.state = STATE_WAIT
             elif self.state == STATE_WAIT:
                 pass
