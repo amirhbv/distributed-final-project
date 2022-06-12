@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOL_SOCKET, socket
+from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
 from threading import Thread
 from time import sleep
 from typing import Set
@@ -9,8 +9,8 @@ from uuid import uuid4
 
 from enums import (ACK_FOR_JOIN, BROADCAST_ADDRESS, BROADCAST_LISTEN_PORT,
                    BROADCAST_TIME_LIMIT_IN_SECONDS, DATA_LIST_SPLITTER,
-                   DATA_SPLITTER, DEFUALT_ADDRESS, FILE_SEARCH_RESULT, REQUEST_FOR_FILE,
-                   REQUEST_FOR_JOIN, REQUEST_FOR_NEIGHBOR, STATE_WAIT, STATE_SEARCH,
+                   DATA_SPLITTER, DEFUALT_ADDRESS, DOWNLOAD_FILE_REQUEST, FILE_SEARCH_RESULT, REQUEST_FOR_FILE,
+                   REQUEST_FOR_JOIN, REQUEST_FOR_NEIGHBOR, STAET_SELECT, STATE_WAIT, STATE_SEARCH, TCP_LISTEN_PORT,
                    UDP_LISTEN_PORT)
 from file_system import FileSystem
 from search_tracker import SearchTracker
@@ -38,6 +38,10 @@ class Packet:
                     for sr_str in (data[2].split(DATA_LIST_SPLITTER) if data[2] else [])
                 ],
                 data[3]
+            )
+        elif command == DOWNLOAD_FILE_REQUEST:
+            return DownloadFileRequestPacket(
+                data[0],
             )
 
         return Packet('ERRRRRRROR')
@@ -91,6 +95,15 @@ class SearchResultPacket(Packet):
         ])
 
 
+class DownloadFileRequestPacket(Packet):
+    def __init__(self, file_name) -> None:
+        self.file_name = file_name
+        return super().__init__(data=[
+            DOWNLOAD_FILE_REQUEST,
+            file_name,
+        ])
+
+
 class Node:
     def __init__(self, directory):
         self.neighbors: Set[str] = set()
@@ -103,6 +116,7 @@ class Node:
         self.ip_address = self.send_socket.getsockname()[0]
         Thread(target=self.handle_broadcast).start()
         Thread(target=self.handle_udp_message).start()
+        Thread(target=self.handle_tcp_message).start()
 
         self.broadcast()
         self.choose_neighbors()
@@ -134,6 +148,26 @@ class Node:
         udp_socket = socket(AF_INET, SOCK_DGRAM)
         udp_socket.bind((self.ip_address, UDP_LISTEN_PORT))
         self.handle_incoming_message(udp_socket)
+
+    def handle_tcp_message(self):
+        with socket(AF_INET, SOCK_STREAM) as tcp_socket:
+            tcp_socket.bind((self.ip_address, TCP_LISTEN_PORT))
+            tcp_socket.listen()
+            conn, addr = tcp_socket.accept()
+            with conn:
+                Thread(target=self.handle_tcp_connection, args=(conn, )).start()
+                print(f"Connected by {addr}")
+
+    def handle_tcp_connection(self, conn):
+        data = conn.recv(1024)
+        packet = Packet.from_message(data)
+        file_search_result = self.search_tracker.get_file_search_result_by_file_name(
+            packet.file_name)
+        if file_search_result.source == self.ip_address:
+            data = self.file_system.get_file_content(packet.file_name)
+        else:
+            data = self.download_file(file_search_result)
+        conn.sendall(data)
 
     def handle_packet(self, packet: Packet, from_address: tuple):
         print(packet, packet.encode(), from_address)
@@ -254,7 +288,11 @@ class Node:
     def run_user_interface(self):
         self.state = STATE_SEARCH
         while True:
+            if self.state != STATE_WAIT:
+                print('state', self.state)
+
             if self.state == STATE_SEARCH:
+                self.state = STATE_WAIT
                 file_name = input("Enter file name:\n")
                 search_id = str(uuid4().bytes)
                 self.handle_search(
@@ -267,17 +305,36 @@ class Node:
                     reached_nodes=[],
                     files=[]
                 )
-                self.state = STATE_WAIT
             elif self.state == STATE_WAIT:
                 pass
             else:
-                file_index = input("Choose file from the list (0 for cancel)")
+                input_str = 'Choose file from the list (0 for cancel):\n'
+                for i, _ in enumerate(self.search_results):
+                    input_str += f'{str(i + 1)}: {str(_)}\n'
+                file_index = input(input_str)
                 if file_index == '0':
                     self.state = STATE_SEARCH
                     continue
                 else:
-                    # self.download_file(file_index)
+                    self.download_file(
+                        self.search_results[int(file_index) - 1],
+                    )
                     pass
+
+    def download_file(self, file_search_result: FileSearchResult):
+        print(file_search_result)
+        with socket(AF_INET, SOCK_STREAM) as download_socket:
+            download_socket.connect(
+                (file_search_result.source, TCP_LISTEN_PORT),
+            )
+            download_socket.sendall(
+                DownloadFileRequestPacket(
+                    file_name=file_search_result.file_name,
+                ).encode()
+            )
+            data = download_socket.recv(1024)
+            print('download: ', data)
+            return data
 
     def handle_search(self, file_name, search_id, current_reached_nodes=[]):
         print("search", current_reached_nodes)
@@ -308,6 +365,8 @@ class Node:
             # files = self.file_system.search_for_file(file_name)
             print('found: ', search_results)
             destination, *reached_nodes = reached_nodes
+            for search_result in search_results:
+                search_result.source = self.ip_address
             self.send_socket.sendto(
                 SearchResultPacket(
                     file_name=file_name,
@@ -319,3 +378,5 @@ class Node:
             )
         else:
             print([str(sr)for sr in search_results])
+            self.state = STAET_SELECT
+            self.search_results = search_results

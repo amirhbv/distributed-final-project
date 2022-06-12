@@ -11,6 +11,9 @@ class SearchTracker:
         self.add_neighbor_lock = Lock()
         self.add_result_lock = Lock()
 
+    def get_file_search_result_by_file_name(self, file_name):
+        return self.file_tracker[file_name]
+
     def add_nieghbor_for_search(self, search_id, neighbor_address: str):
         with self.add_neighbor_lock:
             if search_id in self.search_id_to_neighbors_map:
@@ -45,6 +48,8 @@ class SearchTracker:
                 file_to_result_map[search_result.file_name] = search_result
         for search_result in node_search_result:
             file_to_result_map[search_result.file_name] = search_result
+
+        self.update_file_tracker(file_to_result_map.values())
         return file_to_result_map.values()
 
     def update_file_tracker(self, search_result_list):
