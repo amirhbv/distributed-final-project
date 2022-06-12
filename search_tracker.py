@@ -1,22 +1,24 @@
 from threading import Lock
 from enums import CLASS_DATA_SPLITTER
+
 class SearchTracker:
     def __init__(self):
         self.search_id_to_neighbors_map = dict()
         self.search_id_to_results_map = dict()
         self.search_result = dict()
         self.file_tracker = dict()
+        self.add_neighbor_lock = Lock()
+        self.add_result_lock = Lock()
 
-    def add_nieghbor_for_search(self, search_id, neighbor_address: str):
-        
-        with Lock():
+    def add_nieghbor_for_search(self, search_id, neighbor_address: str):  
+        with self.add_neighbor_lock:
             if search_id in self.search_id_to_neighbors_map:
                 self.search_id_to_neighbors_map[search_id].append(neighbor_address)
             else:
                 self.search_id_to_neighbors_map[search_id] = [neighbor_address]
 
     def add_result_for_search(self, search_id, result_from: str, files: list):
-        with Lock():
+        with self.add_result_lock:
             if search_id in self.search_id_to_results_map:
                 self.search_id_to_results_map[search_id].append(result_from)
                 search_result[search_id] += files
