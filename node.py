@@ -256,10 +256,14 @@ class Node:
         while True:
             if self.state == STATE_SEARCH:
                 file_name = input("Enter file name:\n")
-
+                search_id = str(uuid4().bytes)
+                self.handle_search(
+                    file_name=file_name,
+                    search_id=search_id,
+                )
                 self.create_search_result_response_from_neighbors(
                     file_name=file_name,
-                    search_id=str(uuid4().bytes),
+                    search_id=search_id,
                     reached_nodes=[],
                     files=[]
                 )
@@ -314,4 +318,4 @@ class Node:
                 (destination, UDP_LISTEN_PORT),
             )
         else:
-            print(search_results)
+            print([str(sr)for sr in search_results])
