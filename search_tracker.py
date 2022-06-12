@@ -29,10 +29,7 @@ class SearchTracker:
                 self.search_result[search_id] = files
 
     def is_search_result_ready(self, search_id):
-        if len(self.search_id_to_neighbors_map[search_id]) == len(self.search_id_to_results_map[search_id]):
-            return True
-        else:
-            return False
+        return len(self.search_id_to_neighbors_map[search_id]) == len(self.search_id_to_results_map[search_id])
 
     def get_final_search_result(self, search_id, node_search_result):
         file_to_result_map = dict()

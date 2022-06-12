@@ -2,15 +2,14 @@ from datetime import datetime, timedelta
 from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOL_SOCKET, socket
 from threading import Thread
 from time import sleep
-from typing import List, Set, Tuple
+from typing import Set
 
-from importlib_metadata import files
 from search_tracker import FileSearchResult
-from uuid import uuid1
+from uuid import uuid4
 
 from enums import (ACK_FOR_JOIN, BROADCAST_ADDRESS, BROADCAST_LISTEN_PORT,
                    BROADCAST_TIME_LIMIT_IN_SECONDS, DATA_LIST_SPLITTER,
-                   DATA_SPLITTER, DATA_TUPLE_SPLITTER, DEFUALT_ADDRESS, FILE_SEARCH_RESULT, REQUEST_FOR_FILE,
+                   DATA_SPLITTER, DEFUALT_ADDRESS, FILE_SEARCH_RESULT, REQUEST_FOR_FILE,
                    REQUEST_FOR_JOIN, REQUEST_FOR_NEIGHBOR, STATE_WAIT, STATE_SEARCH,
                    UDP_LISTEN_PORT)
 from file_system import FileSystem
@@ -175,14 +174,14 @@ class Node:
                 search_id=packet.search_id,
                 reached_nodes=packet.reached_nodes,
                 files=files
-                )
+            )
         else:
             self.create_search_result_response(packet, files)
 
     def create_search_result_response_from_neighbors(self, file_name, search_id, reached_nodes, files):
         while (True):
             sleep(1)
-            if self.search_tracker.is_search_result_ready(packet.search_id):
+            if self.search_tracker.is_search_result_ready(search_id):
                 node_search_result = self.search_tracker.create_results_from_files(
                     files, self.ip_address)
                 search_result = self.search_tracker.get_final_search_result(
@@ -257,12 +256,13 @@ class Node:
         while True:
             if self.state == STATE_SEARCH:
                 file_name = input("Enter file name:\n")
+
                 self.create_search_result_response_from_neighbors(
                     file_name=file_name,
-                    search_id=str(uuid1().bytes,
+                    search_id=str(uuid4().bytes),
                     reached_nodes=[],
-                    files=[])
-                    )
+                    files=[]
+                )
                 self.state = STATE_WAIT
             elif self.state == STATE_WAIT:
                 pass
@@ -301,7 +301,7 @@ class Node:
     def handle_file_search_result(self, file_name, reached_nodes, search_results, search_id):
         print("search result", reached_nodes)
         if reached_nodes:
-            #files = self.file_system.search_for_file(file_name)
+            # files = self.file_system.search_for_file(file_name)
             print('found: ', search_results)
             destination, *reached_nodes = reached_nodes
             self.send_socket.sendto(
