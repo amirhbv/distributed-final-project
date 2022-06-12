@@ -31,13 +31,12 @@ class Packet:
         elif command == FILE_SEARCH_RESULT:
             return SearchResultPacket(
                 data[0],
-                data[1],
-                data[2].split(DATA_LIST_SPLITTER) if data[2] else [],
+                data[1].split(DATA_LIST_SPLITTER) if data[1] else [],
                 [
                     FileSearchResult.from_str(sr_str)
-                    for sr_str in (data[3].split(DATA_LIST_SPLITTER) if data[2] else [])
+                    for sr_str in (data[2].split(DATA_LIST_SPLITTER) if data[2] else [])
                 ],
-                data[4]
+                data[3]
             )
 
         return Packet('ERRRRRRROR')
@@ -83,7 +82,10 @@ class SearchResultPacket(Packet):
             FILE_SEARCH_RESULT,
             file_name,
             DATA_LIST_SPLITTER.join(reached_nodes),
-            DATA_LIST_SPLITTER.join([str(search_result) for search_result in search_results]),
+            DATA_LIST_SPLITTER.join([
+                str(search_result)
+                for search_result in search_results
+            ]),
             search_id
         ])
 
@@ -115,10 +117,12 @@ class Node:
                 continue
 
             Thread(
-                target = self.handle_packet(
-                packet=Packet.from_message(msg),
-                from_address=address,
-            )).start()
+                target=self.handle_packet,
+                kwargs=dict(
+                    packet=Packet.from_message(msg),
+                    from_address=address,
+                ),
+            ).start()
 
     def handle_broadcast(self):
         broadcast_socket = socket(AF_INET, SOCK_DGRAM)
@@ -164,21 +168,27 @@ class Node:
         )
         files = self.file_system.search_for_file(packet.file_name)
         if has_sent_packet:
-            self.create_search_result_response_from_neighbors(packet,files)             
+            self.create_search_result_response_from_neighbors(packet, files)
         else:
             self.create_search_result_response(packet, files)
-            
+
     def create_search_result_response_from_neighbors(self, packet, files):
         while (True):
-                sleep(1)
-                if self.search_tracker.is_search_result_ready():
-                    node_search_result = self.search_tracker.create_results_from_files(files, self.ip_address)
-                    search_result = self.search_tracker.get_final_search_result(packet.search_id, node_search_result)
-                    self.handle_file_search_result(packet.file_name, packet.reached_nodes,search_result, packet.search_id)
-                    break
+            sleep(1)
+            if self.search_tracker.is_search_result_ready(packet.search_id):
+                node_search_result = self.search_tracker.create_results_from_files(
+                    files, self.ip_address)
+                search_result = self.search_tracker.get_final_search_result(
+                    packet.search_id, node_search_result)
+                self.handle_file_search_result(
+                    packet.file_name, packet.reached_nodes, search_result, packet.search_id)
+                break
 
-    def create_search_result_response(self,packet: SearchFilePacket, files):
-        node_search_result = self.search_tracker.create_results_from_files(files, self.ip_address)
+    def create_search_result_response(self, packet: SearchFilePacket, files):
+        node_search_result = self.search_tracker.create_results_from_files(
+            files,
+            self.ip_address,
+        )
         self.handle_file_search_result(
             file_name=packet.file_name,
             reached_nodes=packet.reached_nodes,
@@ -189,8 +199,9 @@ class Node:
     def handle_search_result_packet(self, packet: SearchResultPacket, from_address):
         self.search_tracker.add_result_for_search(
             search_id=packet.search_id,
-            result_from=from_address, 
-            files = packet.files)
+            result_from=from_address,
+            files=packet.search_results,
+        )
 
         # self.handle_file_search_result(
         #     file_name=packet.file_name,
@@ -268,7 +279,10 @@ class Node:
                     ).encode(),
                     (neighbor, UDP_LISTEN_PORT),
                 )
-                self.search_tracker.add_nieghbor_for_search(search_id, neighbor)
+                self.search_tracker.add_nieghbor_for_search(
+                    search_id,
+                    neighbor,
+                )
                 has_sent_packet = True
         return has_sent_packet
 
@@ -282,7 +296,7 @@ class Node:
                 SearchResultPacket(
                     file_name=file_name,
                     reached_nodes=reached_nodes,
-                    search_results = search_results,
+                    search_results=search_results,
                     search_id=search_id
                 ).encode(),
                 (destination, UDP_LISTEN_PORT),

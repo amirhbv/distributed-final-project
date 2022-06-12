@@ -1,6 +1,7 @@
 from threading import Lock
 from enums import CLASS_DATA_SPLITTER
 
+
 class SearchTracker:
     def __init__(self):
         self.search_id_to_neighbors_map = dict()
@@ -10,10 +11,11 @@ class SearchTracker:
         self.add_neighbor_lock = Lock()
         self.add_result_lock = Lock()
 
-    def add_nieghbor_for_search(self, search_id, neighbor_address: str):  
+    def add_nieghbor_for_search(self, search_id, neighbor_address: str):
         with self.add_neighbor_lock:
             if search_id in self.search_id_to_neighbors_map:
-                self.search_id_to_neighbors_map[search_id].append(neighbor_address)
+                self.search_id_to_neighbors_map[search_id].append(
+                    neighbor_address)
             else:
                 self.search_id_to_neighbors_map[search_id] = [neighbor_address]
 
@@ -21,11 +23,9 @@ class SearchTracker:
         with self.add_result_lock:
             if search_id in self.search_id_to_results_map:
                 self.search_id_to_results_map[search_id].append(result_from)
-                search_result[search_id] += files
             else:
                 self.search_id_to_results_map[search_id] = [result_from]
-                self.search_result[search_id] += files
-
+            self.search_result[search_id] += files
 
     def is_search_result_ready(self, search_id):
         if len(self.search_id_to_neighbors_map[search_id]) == len(self.search_id_to_results_map[search_id]):
@@ -35,7 +35,7 @@ class SearchTracker:
 
     def get_final_search_result(self, search_id, node_search_result):
         file_to_result_map = dict()
-        for search_result in  self.search_result[search_id]:
+        for search_result in self.search_result[search_id]:
             search_result.depth += 1
             if search_result.file_name in file_to_result_map:
                 if search_result.depth < file_to_result_map[search_result.file_name].depth:
@@ -57,21 +57,22 @@ class SearchTracker:
                 FileSearchResult(
                     file_name=file_name,
                     source_address=node_address,
-                    depth = 0
+                    depth=0
                 )
             )
         return node_search_result
-    
+
+
 class FileSearchResult:
     def __init__(self, file_name, source_address, depth):
         self.file_name = file_name
         self.source = source_address
-        self.depth = depth 
-    
+        self.depth = depth
+
     def __str__(self):
-        return [self.file_name, self.source, str(self.depth)].join(CLASS_DATA_SPLITTER)
-    
+        return CLASS_DATA_SPLITTER.join([self.file_name, self.source, str(self.depth)])
+
     @staticmethod
-    def from_str(cls, str_data):
+    def from_str(str_data):
         data = str_data.split(CLASS_DATA_SPLITTER)
         return FileSearchResult(data[0], data[1], int(data[2]))
