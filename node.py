@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime, timedelta
 from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
 from threading import Thread
@@ -221,7 +222,9 @@ class Node:
             sleep(1)
             if self.search_tracker.is_search_result_ready(search_id):
                 node_search_result = self.search_tracker.create_results_from_files(
-                    files, self.ip_address)
+                    files,
+                    self.ip_address,
+                )
                 search_result = self.search_tracker.get_final_search_result(
                     search_id, node_search_result)
                 self.handle_file_search_result(
@@ -368,6 +371,7 @@ class Node:
         if reached_nodes:
             # files = self.file_system.search_for_file(file_name)
             print('found: ', search_results)
+            search_results = deepcopy(search_results)
             destination, *reached_nodes = reached_nodes
             for search_result in search_results:
                 search_result.source = self.ip_address
