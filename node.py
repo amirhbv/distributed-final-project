@@ -301,14 +301,14 @@ class Node:
 
             if self.state == STATE_SEARCH:
                 self.state = STATE_WAIT
-                file_name = input("Enter file name:\n")
+                file_search_result = input("Enter file name:\n")
                 search_id = str(uuid4().bytes)
                 self.handle_search(
-                    file_name=file_name,
+                    file_name=file_search_result,
                     search_id=search_id,
                 )
                 self.create_search_result_response_from_neighbors(
-                    file_name=file_name,
+                    file_name=file_search_result,
                     search_id=search_id,
                     reached_nodes=[],
                     files=[]
@@ -324,12 +324,14 @@ class Node:
                     self.state = STATE_SEARCH
                     continue
                 else:
-                    file_name = self.search_results[int(file_index) - 1]
+                    file_search_result: FileSearchResult = self.search_results[int(
+                        file_index) - 1
+                    ]
                     data = self.download_file(
-                        file_name,
+                        file_search_result,
                     ).decode()
                     self.file_system.add_new_file(
-                        file_name=file_name,
+                        file_name=file_search_result.file_name,
                         file_content=data,
                     )
 
