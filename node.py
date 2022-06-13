@@ -5,8 +5,6 @@ from threading import Thread
 from time import sleep
 from typing import Set
 
-from jmespath import search
-
 from search_tracker import FileSearchResult
 from uuid import uuid4
 
@@ -238,11 +236,11 @@ class Node:
             files,
             self.ip_address,
         )
-        search_result = self.search_tracker.get_final_search_result(search_id=packet.search_id,node_search_result=node_search_result)
+        self.search_tracker.update_file_tracker(node_search_result)
         self.handle_file_search_result(
             file_name=packet.file_name,
             reached_nodes=packet.reached_nodes,
-            search_results=search_result,
+            search_results=node_search_result,
             search_id=packet.search_id
         )
 
@@ -329,9 +327,11 @@ class Node:
                     file_name = self.search_results[int(file_index) - 1]
                     data = self.download_file(
                         file_name,
+                    ).decode()
+                    self.file_system.add_new_file(
+                        file_name=file_name,
+                        file_content=data,
                     )
-                    self.file_system.add_new_file(file_name=file_name,file_content=data)
-                    pass
 
     def download_file(self, file_search_result: FileSearchResult):
         print(file_search_result)
