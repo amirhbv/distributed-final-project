@@ -37,5 +37,5 @@ class FileSystem:
             return f.read()
 
     def add_new_file(self, file_content, file_name) -> None:
-        with open(file=os.path.join(self.folder_address, file_name), mode='w') as new_file:
+        with open(file=os.path.join(self.folder_address, file_name), mode='wb') as new_file:
             new_file.write(file_content)

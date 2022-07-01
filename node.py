@@ -259,7 +259,7 @@ class Node:
                             packets.append(
                                 DownloadFilePacket(
                                     chunk_no=chunk_no,
-                                    chunk_data=chunk_data,
+                                    chunk_data=chunk_data.decode(),
                                     file_name=packet.file_name,
                                     reached_nodes=[self.ip_address],
                                 )
@@ -445,14 +445,11 @@ class Node:
                     packets = list(self.download_file(
                         file_search_result,
                     ))
-                    print(sorted(packets, key=lambda _: _.chunk_no))
-                    print([_.chunk_data for _ in packets])
-
                     self.file_system.add_new_file(
                         file_name=file_search_result.file_name,
                         file_content=b''.join(
                             [
-                                _.chunk_data
+                                _.chunk_data.encode()
                                 for _ in sorted(packets, key=lambda _: _.chunk_no)
                                 if _.chunk_no not in (START_CHUNK_NO, END_CHUNK_NO)
                             ]
