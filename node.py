@@ -144,10 +144,15 @@ class DownloadFilePacket(Packet):
 
     def add_reached_nodes(self, new_reached_node):
         self.reached_nodes += new_reached_node
-        self.next_packet_size += len(new_reached_node)
+        self.set_next_packet_size(
+            self.next_packet_size
+            + len(new_reached_node)
+            + len(DATA_LIST_SPLITTER)
+        )
 
     def set_next_packet_size(self, next_packet_size):
         self.next_packet_size = next_packet_size
+        self.data[-1] = next_packet_size
 
     @property
     def size(self):
@@ -256,14 +261,18 @@ class Node:
                             )
                         )
 
-                        for packet_index, packet in enumerate(packets):
+                        for packet_index in reversed(range(len(packets))):
                             try:
-                                next_packet = packets[packet_index + 1]
-                                packet.set_next_packet_size(
-                                    next_packet.size
+                                packet = packets[packet_index]
+                                prev_packet = packets[packet_index - 1]
+                                prev_packet.set_next_packet_size(
+                                    packet.size
                                 )
                             except IndexError:
                                 pass
+
+                        for packet in packets:
+                            print("SENDING:", packet.encode())
                             conn.sendall(packet.encode())
 
                     else:
