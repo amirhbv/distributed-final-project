@@ -1,5 +1,9 @@
+from dataclasses import dataclass
 from threading import Lock
+from typing import List
+
 from enums import CLASS_DATA_SPLITTER
+from file_system import FileSystemSearchResult
 
 
 class SearchTracker:
@@ -57,29 +61,31 @@ class SearchTracker:
             self.file_tracker[search_result.file_name] = search_result
         print('file_tracker', self.file_tracker)
 
-    def create_results_from_files(self, files_list, node_address):
+    def create_results_from_files(self, files: List[FileSystemSearchResult], node_address):
         node_search_result = []
-        for file_name in files_list:
+        for file_system_search_result in files:
             node_search_result.append(
                 FileSearchResult(
-                    file_name=file_name,
-                    source_address=node_address,
+                    file_name=file_system_search_result.name,
+                    file_size=file_system_search_result.size,
+                    source=node_address,
                     depth=0
                 )
             )
         return node_search_result
 
 
+@dataclass
 class FileSearchResult:
-    def __init__(self, file_name, source_address, depth):
-        self.file_name = file_name
-        self.source = source_address
-        self.depth = depth
+    file_name: str
+    file_size: int
+    source: str
+    depth: int
 
     def __str__(self):
-        return CLASS_DATA_SPLITTER.join([self.file_name, self.source, str(self.depth)])
+        return CLASS_DATA_SPLITTER.join([self.file_name, str(self.file_size), self.source, str(self.depth)])
 
     @staticmethod
     def from_str(str_data):
         data = str_data.split(CLASS_DATA_SPLITTER)
-        return FileSearchResult(data[0], data[1], int(data[2]))
+        return FileSearchResult(data[0], int(data[1]), data[2], int(data[3]))

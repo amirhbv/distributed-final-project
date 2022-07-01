@@ -1,18 +1,31 @@
+from dataclasses import dataclass
 import os
+from typing import List
+
+
+@dataclass
+class FileSystemSearchResult:
+    name: str
+    size: int
 
 
 class FileSystem:
     def __init__(self, folder_address):
         self.folder_address = folder_address
 
-    def search_for_file(self, searched_name: str):
+    def search_for_file(self, searched_name: str) -> List[FileSystemSearchResult]:
         files = []
         try:
             with os.scandir(self.folder_address) as entries:
                 for entry in entries:
                     if os.path.isfile(os.path.join(self.folder_address, entry.name)):
                         if searched_name.lower() in entry.name.lower():
-                            files.append(entry.name)
+                            files.append(
+                                FileSystemSearchResult(
+                                    name=entry.name,
+                                    size=entry.stat().st_size,
+                                )
+                            )
         except OSError:
             print("ERROR: folder does not exist")
         return files

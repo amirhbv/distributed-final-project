@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
 from threading import Thread
 from time import sleep
-from typing import Set
+from typing import List, Set
 
 from search_tracker import FileSearchResult
 from uuid import uuid4
@@ -13,7 +13,7 @@ from enums import (ACK_FOR_JOIN, BROADCAST_ADDRESS, BROADCAST_LISTEN_PORT,
                    DATA_SPLITTER, DEFUALT_ADDRESS, DOWNLOAD_FILE_REQUEST, FILE_SEARCH_RESULT, REQUEST_FOR_FILE,
                    REQUEST_FOR_JOIN, REQUEST_FOR_NEIGHBOR, STAET_SELECT, STATE_WAIT, STATE_SEARCH, TCP_LISTEN_PORT,
                    UDP_LISTEN_PORT)
-from file_system import FileSystem
+from file_system import FileSystem, FileSystemSearchResult
 from search_tracker import SearchTracker
 
 
@@ -217,7 +217,7 @@ class Node:
         else:
             self.create_search_result_response(packet, files)
 
-    def create_search_result_response_from_neighbors(self, file_name, search_id, reached_nodes, files):
+    def create_search_result_response_from_neighbors(self, file_name, search_id, reached_nodes, files: List[FileSystemSearchResult]):
         while (True):
             sleep(1)
             if self.search_tracker.is_search_result_ready(search_id):
@@ -231,7 +231,7 @@ class Node:
                     file_name, reached_nodes, search_result, search_id)
                 break
 
-    def create_search_result_response(self, packet: SearchFilePacket, files):
+    def create_search_result_response(self, packet: SearchFilePacket, files: List[FileSystemSearchResult]):
         node_search_result = self.search_tracker.create_results_from_files(
             files,
             self.ip_address,
@@ -301,14 +301,14 @@ class Node:
 
             if self.state == STATE_SEARCH:
                 self.state = STATE_WAIT
-                file_search_result = input("Enter file name:\n")
+                requested_file_name = input("Enter file name:\n")
                 search_id = str(uuid4().bytes)
                 self.handle_search(
-                    file_name=file_search_result,
+                    file_name=requested_file_name,
                     search_id=search_id,
                 )
                 self.create_search_result_response_from_neighbors(
-                    file_name=file_search_result,
+                    file_name=requested_file_name,
                     search_id=search_id,
                     reached_nodes=[],
                     files=[]
