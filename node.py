@@ -47,12 +47,12 @@ class Packet:
                 data[0],
             )
         elif command == DOWNLOAD_FILE:
-            if data[0] == START_CHUNK_NO:
+            if int(data[0]) == START_CHUNK_NO:
                 return DownloadFileStartPacket(
                     data[2],
                     int(data[4]),
                 )
-            elif data[0] == END_CHUNK_NO:
+            elif int(data[0]) == END_CHUNK_NO:
                 DownloadFileEndPacket(
                     data[2],
                 )
@@ -156,7 +156,7 @@ class DownloadFilePacket(Packet):
 
     @property
     def size(self):
-        return len(str(self))
+        return len(self.encode())
 
 
 class DownloadFileStartPacket(DownloadFilePacket):
@@ -261,15 +261,13 @@ class Node:
                             )
                         )
 
-                        for packet_index in reversed(range(len(packets))):
-                            try:
-                                packet = packets[packet_index]
-                                prev_packet = packets[packet_index - 1]
-                                prev_packet.set_next_packet_size(
-                                    packet.size
-                                )
-                            except IndexError:
-                                pass
+                        for packet_index in reversed(range(1, len(packets))):
+                            packet = packets[packet_index]
+                            prev_packet = packets[packet_index - 1]
+                            prev_packet.set_next_packet_size(
+                                packet.size
+                            )
+                            print(packet.encode(), packet.size)
 
                         for packet in packets:
                             print("SENDING:", packet.encode())
