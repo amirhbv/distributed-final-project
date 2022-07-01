@@ -11,7 +11,7 @@ from enums import (ACK_FOR_JOIN, BROADCAST_ADDRESS, BROADCAST_LISTEN_PORT,
                    BROADCAST_TIME_LIMIT_IN_SECONDS, CHUNK_SIZE,
                    DATA_LIST_SPLITTER, DATA_SPLITTER, DEFUALT_ADDRESS,
                    DOWNLOAD_FILE, DOWNLOAD_FILE_REQUEST, END_CHUNK_DATA,
-                   END_CHUNK_NO, FILE_SEARCH_RESULT, REQUEST_FOR_FILE,
+                   END_CHUNK_NO, FILE_SEARCH_RESULT, NEXT_PACKET_SIZE_LEN, REQUEST_FOR_FILE,
                    REQUEST_FOR_JOIN, REQUEST_FOR_NEIGHBOR, STAET_SELECT,
                    START_CHUNK_DATA, START_CHUNK_NO, STATE_SEARCH, STATE_WAIT,
                    TCP_LISTEN_PORT, UDP_LISTEN_PORT)
@@ -71,7 +71,10 @@ class Packet:
         self.data = data
 
     def encode(self):
-        return DATA_SPLITTER.join([str(_) for _ in self.data]).encode()
+        return self._encode(self.data)
+
+    def _encode(self, data):
+        return DATA_SPLITTER.join([str(_) for _ in data]).encode()
 
 
 class BroadcastPacket(Packet):
@@ -139,7 +142,6 @@ class DownloadFilePacket(Packet):
             chunk_data,
             file_name,
             DATA_LIST_SPLITTER.join(reached_nodes),
-            next_packet_size,
         ])
 
     def add_reached_nodes(self, new_reached_node):
@@ -152,11 +154,18 @@ class DownloadFilePacket(Packet):
 
     def set_next_packet_size(self, next_packet_size):
         self.next_packet_size = next_packet_size
-        self.data[-1] = next_packet_size
 
     @property
     def size(self):
         return len(self.encode())
+
+    def _encode(self, data):
+        return super()._encode(
+            data=[
+                *data,
+                str(self.next_packet_size).ljust(NEXT_PACKET_SIZE_LEN, '0'),
+            ]
+        )
 
 
 class DownloadFileStartPacket(DownloadFilePacket):
