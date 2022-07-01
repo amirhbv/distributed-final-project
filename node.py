@@ -1,20 +1,22 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
-from socket import AF_INET, SO_BROADCAST, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, socket
+from socket import (AF_INET, SO_BROADCAST, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET,
+                    socket)
 from threading import Thread
 from time import sleep
-from typing import List, Set
-
-from search_tracker import FileSearchResult
+from typing import Iterable, List, Set
 from uuid import uuid4
 
 from enums import (ACK_FOR_JOIN, BROADCAST_ADDRESS, BROADCAST_LISTEN_PORT,
-                   BROADCAST_TIME_LIMIT_IN_SECONDS, DATA_LIST_SPLITTER,
-                   DATA_SPLITTER, DEFUALT_ADDRESS, DOWNLOAD_FILE_REQUEST, FILE_SEARCH_RESULT, REQUEST_FOR_FILE,
-                   REQUEST_FOR_JOIN, REQUEST_FOR_NEIGHBOR, STAET_SELECT, STATE_WAIT, STATE_SEARCH, TCP_LISTEN_PORT,
-                   UDP_LISTEN_PORT)
+                   BROADCAST_TIME_LIMIT_IN_SECONDS, CHUNK_SIZE,
+                   DATA_LIST_SPLITTER, DATA_SPLITTER, DEFUALT_ADDRESS,
+                   DOWNLOAD_FILE, DOWNLOAD_FILE_REQUEST, END_CHUNK_DATA,
+                   END_CHUNK_NO, FILE_SEARCH_RESULT, REQUEST_FOR_FILE,
+                   REQUEST_FOR_JOIN, REQUEST_FOR_NEIGHBOR, STAET_SELECT,
+                   START_CHUNK_DATA, START_CHUNK_NO, STATE_SEARCH, STATE_WAIT,
+                   TCP_LISTEN_PORT, UDP_LISTEN_PORT)
 from file_system import FileSystem, FileSystemSearchResult
-from search_tracker import SearchTracker
+from search_tracker import FileSearchResult, SearchTracker
 
 
 class Packet:
@@ -44,6 +46,24 @@ class Packet:
             return DownloadFileRequestPacket(
                 data[0],
             )
+        elif command == DOWNLOAD_FILE:
+            if data[0] == START_CHUNK_NO:
+                return DownloadFileStartPacket(
+                    data[2],
+                    data[3].split(DATA_LIST_SPLITTER) if data[3] else [],
+                )
+            elif data[0] == END_CHUNK_NO:
+                DownloadFileEndPacket(
+                    data[2],
+                    data[3].split(DATA_LIST_SPLITTER) if data[3] else [],
+                )
+            else:
+                return DownloadFilePacket(
+                    data[0],
+                    data[1],
+                    data[2],
+                    data[3].split(DATA_LIST_SPLITTER) if data[3] else [],
+                )
 
         return Packet('ERRRRRRROR')
 
@@ -103,6 +123,35 @@ class DownloadFileRequestPacket(Packet):
             DOWNLOAD_FILE_REQUEST,
             file_name,
         ])
+
+
+class DownloadFilePacket(Packet):
+    def __init__(self, chunk_no, chunk_data, file_name, reached_nodes) -> None:
+        self.chunk_no = chunk_no
+        self.chunk_data = chunk_data
+        self.file_name = file_name
+        self.reached_nodes = reached_nodes
+        # TODO: Escape DATA_SPLITTER character in file
+        return super().__init__(data=[
+            DOWNLOAD_FILE,
+            chunk_no,
+            chunk_data,
+            file_name,
+            DATA_LIST_SPLITTER.join(reached_nodes),
+        ])
+
+    def add_reached_nodes(self, new_reached_node):
+        self.reached_nodes += new_reached_node
+
+
+class DownloadFileStartPacket(DownloadFilePacket):
+    def __init__(self, file_name, reached_nodes) -> None:
+        super().__init__(START_CHUNK_NO, START_CHUNK_DATA, file_name, reached_nodes)
+
+
+class DownloadFileEndPacket(DownloadFilePacket):
+    def __init__(self, file_name, reached_nodes) -> None:
+        super().__init__(END_CHUNK_NO, END_CHUNK_DATA, file_name, reached_nodes)
 
 
 class Node:
@@ -165,14 +214,45 @@ class Node:
                 packet = Packet.from_message(data)
                 if isinstance(packet, DownloadFileRequestPacket):
                     file_search_result = self.search_tracker.get_file_search_result_by_file_name(
-                        packet.file_name)
+                        file_name=packet.file_name,
+                    )
                     if file_search_result.source == self.ip_address:
-                        data = self.file_system.get_file_content(
+                        file_data = self.file_system.get_file_content(
                             packet.file_name,
-                        ).encode()
+                        )
+                        file_size = len(file_data)
+                        conn.sendall(
+                            DownloadFileStartPacket(
+                                file_name=packet.file_name,
+                                reached_nodes=[self.ip_address],
+                            ).encode()
+                        )
+                        for chunk_no, chunk_start in enumerate(range(0, file_size, CHUNK_SIZE)):
+                            chunk_end = min(
+                                file_size,
+                                chunk_start + CHUNK_SIZE,
+                            )
+                            chunk_data = file_data[chunk_start:chunk_end]
+                            conn.sendall(
+                                DownloadFilePacket(
+                                    chunk_no=chunk_no,
+                                    chunk_data=chunk_data,
+                                    file_name=packet.file_name,
+                                    reached_nodes=[self.ip_address],
+                                ).encode()
+                            )
+                        conn.sendall(
+                            DownloadFileEndPacket(
+                                file_name=packet.file_name,
+                                reached_nodes=[self.ip_address],
+                            ).encode()
+                        )
                     else:
-                        data = self.download_file(file_search_result)
-                    conn.sendall(data)
+                        for recieved_packet in self.download_file(
+                            file_search_result,
+                        ):
+                            recieved_packet.add_reached_nodes(self.ip_address)
+                            conn.sendall(recieved_packet)
 
     def handle_packet(self, packet: Packet, from_address: tuple):
         print(packet, packet.encode(), from_address)
@@ -327,15 +407,21 @@ class Node:
                     file_search_result: FileSearchResult = self.search_results[int(
                         file_index) - 1
                     ]
-                    data = self.download_file(
+                    packets = list(self.download_file(
                         file_search_result,
-                    ).decode()
+                    ))
                     self.file_system.add_new_file(
                         file_name=file_search_result.file_name,
-                        file_content=data,
+                        file_content=b''.join(
+                            [
+                                _.chunk_data
+                                for _ in sorted(packets, key=lambda _: _.chunk_no)
+                                if _.chunk_no not in (START_CHUNK_NO, END_CHUNK_NO)
+                            ]
+                        ),
                     )
 
-    def download_file(self, file_search_result: FileSearchResult):
+    def download_file(self, file_search_result: FileSearchResult) -> Iterable[DownloadFilePacket]:
         print(file_search_result)
         with socket(AF_INET, SOCK_STREAM) as download_socket:
             download_socket.connect(
@@ -346,9 +432,13 @@ class Node:
                     file_name=file_search_result.file_name,
                 ).encode()
             )
-            data = download_socket.recv(1024)
-            print('download: ', data)
-            return data
+            while True:
+                data = download_socket.recv(1024)
+                print('download: ', data)
+                packet = Packet.from_message(data.decode())
+                yield packet
+                if isinstance(packet, DownloadFileEndPacket):
+                    break
 
     def handle_search(self, file_name, search_id, current_reached_nodes=[]):
         print("search", current_reached_nodes)

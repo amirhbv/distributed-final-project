@@ -19,20 +19,21 @@ class FileSystem:
             with os.scandir(self.folder_address) as entries:
                 for entry in entries:
                     if os.path.isfile(os.path.join(self.folder_address, entry.name)):
-                        if searched_name.lower() in entry.name.lower():
+                        file_name, file_size = entry.name, entry.stat().st_size
+                        if searched_name.lower() in file_name.lower() and file_size > 0:
                             files.append(
                                 FileSystemSearchResult(
-                                    name=entry.name,
-                                    size=entry.stat().st_size,
+                                    name=file_name,
+                                    size=file_size,
                                 )
                             )
         except OSError:
             print("ERROR: folder does not exist")
         return files
 
-    def get_file_content(self, file_name: str) -> str:
+    def get_file_content(self, file_name: str) -> bytes:
         file_path = os.path.join(self.folder_address, file_name)
-        with open(file_path, 'r') as f:
+        with open(file_path, 'rb') as f:
             return f.read()
 
     def add_new_file(self, file_content, file_name) -> None:
