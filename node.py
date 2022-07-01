@@ -50,7 +50,7 @@ class Packet:
             if data[0] == START_CHUNK_NO:
                 return DownloadFileStartPacket(
                     data[2],
-                    data[4],
+                    int(data[4]),
                 )
             elif data[0] == END_CHUNK_NO:
                 DownloadFileEndPacket(
@@ -62,7 +62,7 @@ class Packet:
                     data[1],
                     data[2],
                     data[3].split(DATA_LIST_SPLITTER) if data[3] else [],
-                    data[4],
+                    int(data[4]),
                 )
 
         return Packet('ERRRRRRROR')
@@ -155,7 +155,7 @@ class DownloadFilePacket(Packet):
 
 
 class DownloadFileStartPacket(DownloadFilePacket):
-    def __init__(self, file_name, next_packet_size) -> None:
+    def __init__(self, file_name, next_packet_size=0) -> None:
         super().__init__(START_CHUNK_NO, START_CHUNK_DATA, file_name, [], next_packet_size)
 
 
@@ -264,14 +264,14 @@ class Node:
                                 )
                             except IndexError:
                                 pass
-                            conn.sendall(packet)
+                            conn.sendall(packet.encode())
 
                     else:
                         for recieved_packet in self.download_file(
                             file_search_result,
                         ):
                             recieved_packet.add_reached_nodes(self.ip_address)
-                            conn.sendall(recieved_packet)
+                            conn.sendall(recieved_packet.encode())
 
     def handle_packet(self, packet: Packet, from_address: tuple):
         print(packet, packet.encode(), from_address)
