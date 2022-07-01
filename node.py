@@ -445,6 +445,9 @@ class Node:
                     packets = list(self.download_file(
                         file_search_result,
                     ))
+                    print(sorted(packets, key=lambda _: _.chunk_no))
+                    print([_.chunk_data for _ in packets])
+
                     self.file_system.add_new_file(
                         file_name=file_search_result.file_name,
                         file_content=b''.join(
