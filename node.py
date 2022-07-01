@@ -53,12 +53,12 @@ class Packet:
                     int(data[4]),
                 )
             elif int(data[0]) == END_CHUNK_NO:
-                DownloadFileEndPacket(
+                return DownloadFileEndPacket(
                     data[2],
                 )
             else:
                 return DownloadFilePacket(
-                    data[0],
+                    int(data[0]),
                     data[1],
                     data[2],
                     data[3].split(DATA_LIST_SPLITTER) if data[3] else [],
@@ -163,7 +163,7 @@ class DownloadFilePacket(Packet):
         return super()._encode(
             data=[
                 *data,
-                str(self.next_packet_size).ljust(NEXT_PACKET_SIZE_LEN, '0'),
+                str(self.next_packet_size).rjust(NEXT_PACKET_SIZE_LEN, '0'),
             ]
         )
 
