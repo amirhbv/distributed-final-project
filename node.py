@@ -50,12 +50,10 @@ class Packet:
             if data[0] == START_CHUNK_NO:
                 return DownloadFileStartPacket(
                     data[2],
-                    data[3].split(DATA_LIST_SPLITTER) if data[3] else [],
                 )
             elif data[0] == END_CHUNK_NO:
                 DownloadFileEndPacket(
                     data[2],
-                    data[3].split(DATA_LIST_SPLITTER) if data[3] else [],
                 )
             else:
                 return DownloadFilePacket(
@@ -126,11 +124,12 @@ class DownloadFileRequestPacket(Packet):
 
 
 class DownloadFilePacket(Packet):
-    def __init__(self, chunk_no, chunk_data, file_name, reached_nodes) -> None:
+    def __init__(self, chunk_no, chunk_data, file_name, reached_nodes, next_packet_size=0) -> None:
         self.chunk_no = chunk_no
         self.chunk_data = chunk_data
         self.file_name = file_name
         self.reached_nodes = reached_nodes
+        self.next_packet_size = next_packet_size
         # TODO: Escape DATA_SPLITTER character in file
         return super().__init__(data=[
             DOWNLOAD_FILE,
@@ -138,20 +137,29 @@ class DownloadFilePacket(Packet):
             chunk_data,
             file_name,
             DATA_LIST_SPLITTER.join(reached_nodes),
+            next_packet_size,
         ])
 
     def add_reached_nodes(self, new_reached_node):
         self.reached_nodes += new_reached_node
+        self.next_packet_size += len(new_reached_node)
+
+    def set_next_packet_size(self, next_packet_size):
+        self.next_packet_size = next_packet_size
+
+    @property
+    def size(self):
+        return len(str(self))
 
 
 class DownloadFileStartPacket(DownloadFilePacket):
-    def __init__(self, file_name, reached_nodes) -> None:
-        super().__init__(START_CHUNK_NO, START_CHUNK_DATA, file_name, reached_nodes)
+    def __init__(self, file_name) -> None:
+        super().__init__(START_CHUNK_NO, START_CHUNK_DATA, file_name, [])
 
 
 class DownloadFileEndPacket(DownloadFilePacket):
-    def __init__(self, file_name, reached_nodes) -> None:
-        super().__init__(END_CHUNK_NO, END_CHUNK_DATA, file_name, reached_nodes)
+    def __init__(self, file_name) -> None:
+        super().__init__(END_CHUNK_NO, END_CHUNK_DATA, file_name, [])
 
 
 class Node:
@@ -221,32 +229,41 @@ class Node:
                             packet.file_name,
                         )
                         file_size = len(file_data)
-                        conn.sendall(
+                        packets: List[DownloadFilePacket] = [
                             DownloadFileStartPacket(
                                 file_name=packet.file_name,
-                                reached_nodes=[self.ip_address],
-                            ).encode()
-                        )
+                            )
+                        ]
                         for chunk_no, chunk_start in enumerate(range(0, file_size, CHUNK_SIZE)):
                             chunk_end = min(
                                 file_size,
                                 chunk_start + CHUNK_SIZE,
                             )
                             chunk_data = file_data[chunk_start:chunk_end]
-                            conn.sendall(
+                            packets.append(
                                 DownloadFilePacket(
                                     chunk_no=chunk_no,
                                     chunk_data=chunk_data,
                                     file_name=packet.file_name,
                                     reached_nodes=[self.ip_address],
-                                ).encode()
+                                )
                             )
-                        conn.sendall(
+                        packets.append(
                             DownloadFileEndPacket(
                                 file_name=packet.file_name,
-                                reached_nodes=[self.ip_address],
-                            ).encode()
+                            )
                         )
+
+                        for packet_index, packet in enumerate(packets):
+                            try:
+                                next_packet = packets[packet_index + 1]
+                                packet.set_next_packet_size(
+                                    next_packet.size
+                                )
+                            except IndexError:
+                                pass
+                            conn.sendall(packet)
+
                     else:
                         for recieved_packet in self.download_file(
                             file_search_result,
@@ -432,11 +449,15 @@ class Node:
                     file_name=file_search_result.file_name,
                 ).encode()
             )
+            recv_size = DownloadFileStartPacket(
+                file_name=file_search_result.file_name,
+            ).size
             while True:
-                data = download_socket.recv(1024)
+                data = download_socket.recv(recv_size)
                 print('download: ', data)
-                packet = Packet.from_message(data.decode())
+                packet = Packet.from_message(data)
                 yield packet
+                recv_size = packet.next_packet_size
                 if isinstance(packet, DownloadFileEndPacket):
                     break
 
